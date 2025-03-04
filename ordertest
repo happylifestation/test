@@ -1,0 +1,122 @@
+<script>
+    function validateForm() {
+        let isValid = true;
+        let errors = [];
+
+        // Validate platform selection
+        let platform = $('#platform').val().trim();
+        if (platform === "") {
+            errors.push("- กรุณาเลือกช่องทางการสั่งซื้อ");
+        } else if (platform === "Line") {
+            $('#platform').val("Line My Shop"); // Auto-change "Line" to "Line My Shop"
+        }
+
+        // Validate order number (only numbers and valid order formats)
+        let orderNumber = $('#orderNumber').val().trim();
+        if (!/^\d{6,}$/.test(orderNumber)) { // Adjust regex based on actual order format
+            errors.push("- กรุณากรอกเลขออเดอร์ที่ถูกต้อง");
+        }
+
+        // Validate customer name
+        if ($('#cus_name').val().trim() === "") {
+            errors.push("- กรุณากรอกชื่อลูกค้าในไลน์ @");
+        }
+
+        // Validate phone number (with country selection)
+        let countryCode = $('#countryCode').val() || "+66"; // Default to Thailand
+        let phone = $('#phone').val().trim();
+        if (!/^\d{9,15}$/.test(phone)) {
+            errors.push("- กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9-15 หลัก)");
+        }
+        let fullPhoneNumber = countryCode + phone;
+
+        // Validate message details
+        if ($('#detail').val().trim() === "") {
+            errors.push("- กรุณากรอกข้อความที่ต้องการใส่บนงาน");
+        }
+
+        // Validate image upload
+        let files = $('#temp-imgs')[0].files;
+        if (files.length === 0) {
+            errors.push("- กรุณาอัปโหลดรูปภาพ");
+        } else if (files.length > 8) {
+            errors.push("- สามารถอัปโหลดได้สูงสุด 8 รูป");
+        } else {
+            $.each(files, function(_, file) {
+                if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+                    errors.push("- อัปโหลดได้เฉพาะไฟล์รูปภาพ JPEG หรือ PNG");
+                    return false;
+                }
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    errors.push(`- ไฟล์ ${file.name} ขนาดใหญ่เกินไป (จำกัด 5MB)`);
+                    return false;
+                }
+            });
+        }
+
+        // Display errors
+        if (errors.length > 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'ข้อผิดพลาด',
+                text: errors.join("\n"),
+                confirmButtonText: 'ปิด'
+            });
+            return false;
+        }
+
+        // If all validations pass, send data
+        sendDataToGoogleSheets({
+            orderNumber: orderNumber,
+            customerName: $('#cus_name').val().trim(),
+            phone: fullPhoneNumber,
+            platform: platform,
+            message: $('#detail').val().trim(),
+            images: files,
+            date: new Date().toISOString().split("T")[0] // Format YYYY-MM-DD
+        });
+
+        return true;
+    }
+
+    function sendDataToGoogleSheets(data) {
+        // Send the form data to Google Sheets via API or Google Apps Script
+        $.ajax({
+            url: "YOUR_GOOGLE_SHEET_WEBHOOK",  // Replace with your Google Apps Script URL
+            method: "POST",
+            data: JSON.stringify(data),
+            contentType: "application/json",
+            success: function(response) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งข้อมูลสำเร็จ!',
+                    text: 'ระบบได้บันทึกข้อมูลของคุณแล้ว',
+                    confirmButtonText: 'ตกลง'
+                });
+            },
+            error: function(error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+                    confirmButtonText: 'ปิด'
+                });
+            }
+        });
+    }
+
+    (function () {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                if (!validateForm()) {
+                    event.stopPropagation();
+                } else {
+                    submit();
+                }
+            }, false);
+        });
+    })();
+</script>
